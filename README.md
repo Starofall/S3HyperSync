@@ -1,28 +1,20 @@
 # S3HyperSync
+S3HyperSync is a high-performance, memory-efficient, and cost-effective tool for synchronizing files between S3-compatible storage services. Optimized for speed, reliability, and minimizing AWS costs, it's ideal for large-scale data synchronization and backup tasks. Utilizing Pekko, it adopts a stream-only approach to maintain low memory requirements.
 
-S3HyperSync is a high-performance, memory-efficient, and cost-effective tool designed for synchronizing files between
-S3-compatible storage services. This tool is optimized for speed, reliability, and
-minimizing AWS costs, making it an ideal solution for large-scale data synchronization or backup tasks.
-
-It uses Pekko under the hood to have a stream-only approach that keeps memory requirements low.
-
-
+## Origin
+Developed for creating daily backups of huge S3 buckets with millions of files and terabyte of data to an seperate AWS account.
 
 ## Cost Effective
-To sync big S3 buckets to e.g. a backup bucket, the tool needs to compare both directories.
-For this, some tools use ListBucket for the source, but GetObject for the target bucket.
-If your data is stored as DEEP_ARCHIVE, these GetObject requests get expensive fast.
-S3HyperSync uses two iterator streams for the source and target stream and thereby only creates ListBucket
-requests if nothing needs to be synced.
-
-Another issue if your store data e.g. in the DEEP_ARCHIVE tier is that the amount of PutObject requests
-can get expensive. S3HyperSync therefore tries to minimize the use of MultiPart uploads, as they
-are charged with at least three PutObject requests.
+To sync large S3 buckets, S3HyperSync compares directories using two iterator streams for the source and target, reducing the need for costly GetObject requests, especially for DEEP_ARCHIVE storage. 
+It minimizes expensive MultiPart uploads, as they count as multiple PutObject calls.
 
 ## Performance
-In performance testing on AWS Fargate, the iteration speed was between 8.000 files per second and 100.000 files per second using the
-UUID booster feature (which creates listDirectory iterators for each possible first uuid letter in lowercase).
-Copy speed is around 600MB/s on a c6gn.8xlarge or around 500 files per second for smaller files.
+Performance tests on AWS Fargate show iteration speeds between 8,000 to 100,000 files per second with the UUID booster feature. 
+Copy speeds reach around 600MB/s on a c6gn.4xlarge or 500 files per second for smaller files.
+
+## UUID Booster
+The UUID booster feature can be used if data is suffixed with a uuid. E.g. s3://bucket/videos/$UUID
+In this case the tool creates 16 iterators and processes them in parallel for extremly fast bucket comparison.
 
 ## Installation
 
