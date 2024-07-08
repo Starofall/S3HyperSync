@@ -6,7 +6,7 @@ lazy val root = (project in file("."))
   .settings(
     name := "S3HyperSync",
     organization := "io.github.starofall",
-    version := "0.1.0",
+    version := "0.1.5",
     scalaVersion := "2.13.14",
     assembly / assemblyMergeStrategy := {
       case x if x.contains("META-INF") && x.contains("module-info.class") => MergeStrategy.discard
@@ -34,5 +34,8 @@ lazy val root = (project in file("."))
       "org.apache.pekko" %% "pekko-stream" % "1.0.2",
       "ch.qos.logback" % "logback-core" % "1.4.14",
       "ch.qos.logback" % "logback-classic" % "1.4.14",
+      // testing dependencies
+      "org.scalatest" %% "scalatest" % "3.2.19" % "test",
+      "io.github.robothy" % "local-s3-rest" % "1.15" % "test"
       )
     )

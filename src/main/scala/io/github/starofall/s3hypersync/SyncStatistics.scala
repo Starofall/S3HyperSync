@@ -1,6 +1,6 @@
 package io.github.starofall.s3hypersync
 
-import io.github.starofall.s3hypersync.SyncLogUtil.Logger
+import io.github.starofall.s3hypersync.SyncLogging.Logger
 import io.github.starofall.s3hypersync.SyncModel.{FileSyncState, SyncStatus}
 import org.apache.pekko.actor.{ActorSystem, Cancellable}
 
@@ -8,28 +8,32 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 
-object SyncStatistics extends Logger {
-  private var filesScanned                           = new AtomicInteger(0)
-  private var filesMissing                           = new AtomicInteger(0)
-  private var filesChanged                           = new AtomicInteger(0)
-  private var filesCopied                            = new AtomicInteger(0)
-  private var filesExisting                          = new AtomicInteger(0)
-  private var filesScannedLastSecond                 = new AtomicInteger(0)
-  private var awsPutRequests                         = new AtomicInteger(0)
-  private var bytesTransferredLastSecond: AtomicLong = new AtomicLong(0L)
-  private var totalBytesTransferred     : AtomicLong = new AtomicLong(0L)
-  private var lastUpdateTime            : Long       = System.currentTimeMillis()
-  private var started                                = false
+class SyncStatistics(conf: JobDefinition)
+                    (implicit actorSystem: ActorSystem, executionContext: ExecutionContext)
+  extends Logger {
 
+  val filesScanned                           = new AtomicInteger(0)
+  val filesMissing                           = new AtomicInteger(0)
+  val filesChanged                           = new AtomicInteger(0)
+  val filesCopied                            = new AtomicInteger(0)
+  val filesExisting                          = new AtomicInteger(0)
+  val filesScannedLastSecond                 = new AtomicInteger(0)
+  val awsPutRequests                         = new AtomicInteger(0)
+  val bytesTransferredLastSecond: AtomicLong = new AtomicLong(0L)
+  val totalBytesTransferred     : AtomicLong = new AtomicLong(0L)
+  var lastUpdateTime            : Long       = System.currentTimeMillis()
+  var started                                = false
 
-  def statCall(conf: JobDefinition, x: FileSyncState): Unit = {
-    SyncStatistics.setStarted()
+  initStatistics()
+
+  def statCall(x: FileSyncState): Unit = {
+    setStarted()
     x.status match {
-      case SyncStatus.Missing     => SyncStatistics.incrementFilesMissing()
-      case SyncStatus.SizeChanged => SyncStatistics.incrementFilesChanged()
-      case SyncStatus.Exists      => SyncStatistics.incrementFilesExisting()
+      case SyncStatus.Missing     => incrementFilesMissing()
+      case SyncStatus.SizeChanged => incrementFilesChanged()
+      case SyncStatus.Exists      => incrementFilesExisting()
     }
-    SyncStatistics.incrementFilesScanned()
+    incrementFilesScanned()
     log.trace(x.status.toString + "->" + x.file.key)
   }
 
@@ -46,16 +50,13 @@ object SyncStatistics extends Logger {
 
   def setStarted(): Unit = started = true
 
-  def incrementFilesCopied(): Unit = {
+  def incrementFilesCopied(size: Long): Unit = {
     filesCopied.incrementAndGet()
-  }
-
-  def addBytesTransferred(size: Long): Unit = {
     bytesTransferredLastSecond.addAndGet(size)
     totalBytesTransferred.addAndGet(size)
   }
 
-  def incrementAwsPutRequests(l: Int) = awsPutRequests.addAndGet(l)
+  def incrementAwsPutRequests(l: Int): Int = awsPutRequests.addAndGet(l)
 
   def printFinalStatistics(): Unit = {
     log.info("##############")
@@ -73,11 +74,11 @@ object SyncStatistics extends Logger {
     log.info("##############")
   }
 
-  def initStatistics(conf: JobDefinition)(implicit actorSystem: ActorSystem, executionContext: ExecutionContext): Cancellable = {
+  def initStatistics(): Cancellable = {
     log.info(s"[INIT] ".yellow +
-               s"${conf.sb.toOption.get}/${conf.sx.getOrElse("")} ".green +
+               s"${conf.sourceBucket.toOption.get}/${conf.sourcePrefix.getOrElse("")} ".green +
                s"-> " +
-               s"${conf.tb.toOption.get}/${conf.tx.getOrElse("")}".cyan)
+               s"${conf.targetBucket.toOption.get}/${conf.targetPrefix.getOrElse("")}".cyan)
     // Schedule a task to print statistics every second
     actorSystem.scheduler.scheduleAtFixedRate(1.second, 5.second) {
       () => printStatistics()
@@ -94,9 +95,13 @@ object SyncStatistics extends Logger {
     bytesTransferredLastSecond.set(0) // Reset for the next interval
     if (started) {
       log.info(f"[STATS] ".yellow +
-                 f"Bandwidth: $MBspeed%.2f MB/s, ".magenta +
-                 f"Files $speed%.2f files/sec, ".red +
-                 f"Files scanned: $filesScanned".cyan)
+                 f"Bandwidth: $MBspeed%.2f MB/s | ".magenta +
+                 f"Files: $speed%.2f f/sec".red +
+                 f" | Scanned: $filesScanned".cyan +
+                 f" | Copied: $filesCopied".cyan +
+                 f" | Missing: $filesMissing".cyan +
+                 f" | Changed: $filesChanged".cyan +
+                 f" | Existing: $filesExisting".cyan)
     }
   }
 }

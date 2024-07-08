@@ -9,20 +9,20 @@ object SyncS3Settings {
 
   /** extracts the job definition source as s3 settings */
   def sourceConfig(d: JobDefinition): S3Settings = {
-    buildS3Settings(d.sk.toOption.get,
-                    d.ss.toOption.get,
-                    d.sr.toOption.get,
-                    d.se.toOption,
-                    d.sp.toOption.getOrElse(false))
+    buildS3Settings(d.sourceKey.toOption.get,
+                    d.sourceSecret.toOption.get,
+                    d.sourceRegion.toOption.get,
+                    d.sourceEndpoint.toOption,
+                    d.sourcePathStyle.toOption.getOrElse(false))
   }
 
   /** extracts the job definition target as s3 settings */
   def targetConfig(d: JobDefinition): S3Settings = {
-    buildS3Settings(d.tk.toOption.get,
-                    d.ts.toOption.get,
-                    d.tr.toOption.get,
-                    d.te.toOption,
-                    d.tp.toOption.getOrElse(false))
+    buildS3Settings(d.targetKey.toOption.get,
+                    d.targetSecret.toOption.get,
+                    d.targetRegion.toOption.get,
+                    d.targetEndpoint.toOption,
+                    d.targetPathStyle.toOption.getOrElse(false))
   }
 
   /** creates a pekko config object */

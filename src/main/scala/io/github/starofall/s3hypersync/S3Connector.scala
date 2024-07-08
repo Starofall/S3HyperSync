@@ -1,6 +1,6 @@
 package io.github.starofall.s3hypersync
 
-import io.github.starofall.s3hypersync.SyncLogUtil.Logger
+import io.github.starofall.s3hypersync.SyncLogging.Logger
 import io.github.starofall.s3hypersync.SyncModel.SyncFile
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
@@ -18,13 +18,14 @@ object S3Connector extends Logger {
                sKey:     String,
                tKey:     String,
                fileSize: Long)
-              (implicit actorSystem: ActorSystem): Future[Any] = {
+              (implicit actorSystem: ActorSystem,
+               statistics: SyncStatistics): Future[Any] = {
     val s3Source: Source[ByteString, Future[ObjectMetadata]] = S3
-      .getObject(job.sb.toOption.get, sKey)
-      .withAttributes(S3Attributes.settings(job.sourceS3Config))
+      .getObject(job.sourceBucket.toOption.get, sKey)
+      .withAttributes(S3Attributes.settings(SyncS3Settings.sourceConfig(job)))
 
     val storageString = {
-      job.tier.getOrElse("STANDARD") match {
+      job.storageTier.getOrElse("STANDARD") match {
         case "STANDARD"            => "STANDARD"
         case "INTELLIGENT_TIERING" => "INTELLIGENT_TIERING"
         case "GLACIER_IA"          => "GLACIER_IA"
@@ -46,24 +47,24 @@ object S3Connector extends Logger {
     }
 
     if (fileSize < job.putCutoffSize.toOption.getOrElse(52428800)) {
-      log.trace(s"[COPY-PUT] ${job.sb.toOption.get} / $sKey -> ${job.tb.toOption.get} / $tKey")
-      SyncStatistics.incrementAwsPutRequests(1)
-      S3.putObject(job.tb.toOption.get, tKey,
+      log.trace(s"[COPY-PUT] ${job.sourceBucket.toOption.get} / $sKey -> ${job.targetBucket.toOption.get} / $tKey")
+      statistics.incrementAwsPutRequests(1)
+      S3.putObject(job.targetBucket.toOption.get, tKey,
                    s3Headers = S3Headers().withCustomHeaders(Map("x-amz-storage-class" -> storageString)),
                    data = s3Source,
                    contentLength = fileSize)
-        .withAttributes(S3Attributes.settings(job.targetS3Config))
+        .withAttributes(S3Attributes.settings(SyncS3Settings.targetConfig(job)))
         .run()
     } else {
-      log.trace(s"[COPY-MULTIPART] ${job.sb.toOption.get} / $sKey -> ${job.tb.toOption.get} / $tKey")
-      val multiPartChunkSize = job.multiPartSize.getOrElse(52428800)
-      SyncStatistics.incrementAwsPutRequests(2 + Math.max(1, (fileSize / multiPartChunkSize).toInt))
+      log.trace(s"[COPY-MULTIPART] ${job.sourceBucket.toOption.get} / $sKey -> ${job.targetBucket.toOption.get} / $tKey")
+      val multiPartChunkSize = job.multipartSize.getOrElse(52428800)
+      statistics.incrementAwsPutRequests(2 + Math.max(1, (fileSize / multiPartChunkSize).toInt))
       val s3Sink: Sink[ByteString, Future[MultipartUploadResult]] = S3
         .multipartUploadWithHeaders(
-          job.tb.toOption.get, tKey,
+          job.targetBucket.toOption.get, tKey,
           chunkSize = multiPartChunkSize,
           s3Headers = S3Headers().withCustomHeaders(Map("x-amz-storage-class" -> storageString)))
-        .withAttributes(S3Attributes.settings(job.targetS3Config))
+        .withAttributes(S3Attributes.settings(SyncS3Settings.targetConfig(job)))
       s3Source.runWith(s3Sink)
     }
   }
@@ -85,8 +86,7 @@ object S3Connector extends Logger {
         prefix match {
           case Some(value) => x.key.stripPrefix(value)
           case None        => x.key
-        })
-           )
+        }))
   }
 
 }

@@ -4,47 +4,71 @@ S3HyperSync is a high-performance, memory-efficient, and cost-effective tool des
 S3-compatible storage services. This tool is optimized for speed, reliability, and
 minimizing AWS costs, making it an ideal solution for large-scale data synchronization or backup tasks.
 
-## Features
+It uses Pekko under the hood to have a stream-only approach that keeps memory requirements low.
 
-- Concurrent Workers: Up to 64 concurrent workers for parallel uploads.
-- UUID Booster: Significantly increases indexing speed when source prefixes contain UUIDs.
-- Custom S3 Endpoints: Allows configuring custom endpoints for lower-cost S3-compatible storage.
-- Avoids GET Requests: Minimizes the use of GET requests to reduce costs.
-- Cost-Effective Storage: Automatically selects the most appropriate and cost-effective S3 storage tiers.
-- Minimized PUT Requests: Attempts to reduce the number of multipart uploads to save on request costs.
-- Custom Endpoints: Supports other S3-compatible storage services.
-- Stream-Based Approach: Processes files without holding all items in memory, allowing for efficient memory usage even
-  with large datasets.
+
+
+## Cost Effective
+To sync big S3 buckets to e.g. a backup bucket, the tool needs to compare both directories.
+For this, some tools use ListBucket for the source, but GetObject for the target bucket.
+If your data is stored as DEEP_ARCHIVE, these GetObject requests get expensive fast.
+S3HyperSync uses two iterator streams for the source and target stream and thereby only creates ListBucket
+requests if nothing needs to be synced.
+
+Another issue if your store data e.g. in the DEEP_ARCHIVE tier is that the amount of PutObject requests
+can get expensive. S3HyperSync therefore tries to minimize the use of MultiPart uploads, as they
+are charged with at least three PutObject requests.
 
 ## Performance
-In performance testing on AWS Fargate, the iteration speed was between 8000 files per second and 100.000 files per second using the
-UUID booster feature.
-Copy speed was either limited by the network interface or around 500 files per second for smaller files.
+In performance testing on AWS Fargate, the iteration speed was between 8.000 files per second and 100.000 files per second using the
+UUID booster feature (which creates listDirectory iterators for each possible first uuid letter in lowercase).
+Copy speed is around 600MB/s on a c6gn.8xlarge or around 500 files per second for smaller files.
+
+## Installation
+
+Download the JAR file from the Release Section or build it yourself with sbt assembly.
 
 ## Usage
 
-Get the jar file and a working JVM. Then run the command on your CLI:
-
-> java -jar S3HyperSync.jar \
-> --sk <source-s3-key> \
-> --ss <source-s3-secret> \
-> --sr <source-s3-region> \
-> --sb <source-s3-bucket> \
-> --sx <source-s3-prefix> \
-> --tk <target-r2-key> \
-> --ts <target-r2-secret> \
-> --tr <target-r2-region> \
-> --tb <target-r2-bucket> \
-> --tx <target-r2-prefix> \
-> --te https://<custom-r2-endpoint> \
-> --tp \
-> --workers 32 \
-> --putCutoffSize 104857600 \
-> --multiPartSize 104857600 \
-> --sync IF_SIZE_CHANGED \
-> --tier INTELLIGENT_TIERING \
-> --dryrun
-
+```
+S3HyperSync.jar 0.1.5
+Usage: java -jar S3HyperSync.jar [OPTIONS]
+A fast, efficient, cost-reducing, and memory-efficient S3 sync tool.
+Options:
+      --dry-run                  Show what would be copied without actually
+                                 copying
+      --multipart-size  <arg>    Size of each part in a multipart upload (in
+                                 bytes)
+      --no-color                 Disable colored output
+      --put-cutoff-size  <arg>   Files larger than this size (in bytes) are
+                                 uploaded using multipart
+      --source-bucket  <arg>     Source S3 Bucket
+      --source-endpoint  <arg>   Source S3 Endpoint
+      --source-key  <arg>        Source S3 Key
+      --source-path-style        Use path style for source S3
+      --source-prefix  <arg>     Source S3 Prefix (must end with /)
+      --source-region  <arg>     Source S3 Region
+      --source-secret  <arg>     Source S3 Secret
+      --storage-tier  <arg>      Storage tier: STANDARD, INTELLIGENT_TIERING,
+                                 GLACIER_IR, GLACIER_IR_AUTO, DEEP_ARCHIVE,
+                                 DEEP_ARCHIVE_AUTO
+      --sync  <arg>              Sync mode: ALWAYS, MISSING, CHANGED
+      --target-bucket  <arg>     Target S3 Bucket
+      --target-endpoint  <arg>   Target S3 Endpoint
+      --target-key  <arg>        Target S3 Key
+      --target-path-style        Use path style for target S3
+      --target-prefix  <arg>     Target S3 Prefix (must end with /)
+      --target-region  <arg>     Target S3 Region
+      --target-secret  <arg>     Target S3 Secret
+      --timeout  <arg>           Kills the process after N seconds
+      --uuid-boost               Increase index speed if source prefix contains
+                                 UUIDs
+  -v, --verbose                  Verbose level (use multiple -v for increased
+                                 verbosity)
+      --workers  <arg>           Number of workers
+  -h, --help                     Show help message
+      --version                  Show version of this program
+```
 ## Contributing
 
 We welcome contributions from the community. If you find a bug or have a feature request, please open an issue on

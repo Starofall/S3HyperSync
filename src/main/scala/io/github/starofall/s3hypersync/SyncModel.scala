@@ -5,18 +5,12 @@ object SyncModel {
   /** Represents the status of sync */
   trait SyncStatus
 
-  /**
-   * Describes the sync status of a given file
-   *
-   * @param status status
-   * @param file   ref to syncFile
-   */
+  /** Describes the sync status of a given file */
   case class FileSyncState(status: SyncStatus,
                            file:   SyncFile)
 
   /**
    * references a file on s3
-   *
    * @param bucket      the bucket this file exists on
    * @param key         the full s3 key
    * @param size        the byteSize of the file

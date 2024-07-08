@@ -1,6 +1,6 @@
 package io.github.starofall.s3hypersync
 
-import io.github.starofall.s3hypersync.SyncLogUtil.Logger
+import io.github.starofall.s3hypersync.SyncLogging.Logger
 import io.github.starofall.s3hypersync.SyncModel.{FileSyncState, SyncFile, SyncStatus}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream._
@@ -79,14 +79,12 @@ class PekkoFileSyncCompareStage extends GraphStage[FanInShape2[SyncFile, SyncFil
             // same but changing etags
             push(out, FileSyncState(SyncStatus.SizeChanged, a))
             clearAandPull()
-          //            clearBandPull()
 
           case (Some(a), Some(b)) if a.relativeKey == b.relativeKey => // aka same size
             log.trace("-> exists")
             // same key, same size
             push(out, FileSyncState(SyncStatus.Exists, a))
             clearAandPull()
-          //            clearBandPull()
 
           // this means a.relativeKey > b.relativeKey aka we need more B to continue
           case (Some(a), Some(b)) if !bFinished =>
@@ -153,6 +151,22 @@ object PekkoFileSyncCompareStage {
       syncTarget ~> compareAndFilter.in1
       SourceShape(compareAndFilter.out)
     })
+  }
+
+  /** creates our source of files to sync from the job definition*/
+  def createSyncSource(conf: JobDefinition, additionalPrefix: Option[String]): Source[FileSyncState, NotUsed] = {
+    PekkoFileSyncCompareStage
+      .compareFilesToTarget(
+        S3Connector.listBucket(conf.sourceBucket.toOption.get,
+                               conf.sourcePrefix.toOption,
+                               additionalPrefix,
+                               SyncS3Settings.sourceConfig(conf))
+                   .buffer(10000, OverflowStrategy.backpressure).async,
+        S3Connector.listBucket(conf.targetBucket.toOption.get,
+                               conf.targetPrefix.toOption,
+                               additionalPrefix,
+                               SyncS3Settings.targetConfig(conf))
+                   .buffer(10000, OverflowStrategy.backpressure).async)
   }
 
 }
