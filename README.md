@@ -10,7 +10,7 @@ It minimizes expensive MultiPart uploads, as they count as multiple PutObject ca
 
 ## Performance
 Performance tests on AWS Fargate show iteration speeds between 8,000 to 100,000 files per second with the UUID booster feature. 
-Copy speeds reach around 600MB/s on a c6gn.4xlarge or 500 files per second for smaller files.
+Copy speeds reach around 600MB/s on a c6gn.4xlarge or 800 files per second for smaller files.
 
 ## UUID Booster
 The UUID booster feature can be used if data is suffixed with a uuid. E.g. s3://bucket/videos/$UUID
