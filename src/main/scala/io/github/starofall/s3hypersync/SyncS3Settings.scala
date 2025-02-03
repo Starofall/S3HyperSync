@@ -3,6 +3,7 @@ package io.github.starofall.s3hypersync
 import com.typesafe.config.ConfigFactory
 import org.apache.pekko.stream.connectors.s3.S3Settings
 
+import java.nio.file.Files
 import scala.jdk.CollectionConverters.MapHasAsJava
 
 object SyncS3Settings {
@@ -17,12 +18,14 @@ object SyncS3Settings {
   }
 
   /** extracts the job definition target as s3 settings */
-  def targetConfig(d: JobDefinition): S3Settings = {
+  def targetConfig(d:          JobDefinition,
+                   isHugeFile: Boolean = false): S3Settings = {
     buildS3Settings(d.targetKey.toOption.get,
                     d.targetSecret.toOption.get,
                     d.targetRegion.toOption.get,
                     d.targetEndpoint.toOption,
-                    d.targetPathStyle.toOption.getOrElse(false))
+                    d.targetPathStyle.toOption.getOrElse(false),
+                    isHugeFile)
   }
 
   /** creates a pekko config object */
@@ -30,7 +33,8 @@ object SyncS3Settings {
                               accessKey:          String,
                               region:             String,
                               endpointOverwrite:  Option[String],
-                              usePathAccessStyle: Boolean): S3Settings = {
+                              usePathAccessStyle: Boolean,
+                              isHugeFile:         Boolean = false): S3Settings = {
     val settingMap = scala.collection.mutable.Map(
       "buffer" -> "memory",
       "validate-object-key" -> "true",
@@ -50,6 +54,11 @@ object SyncS3Settings {
       "aws.credentials.access-key-id" -> keyId,
       "aws.credentials.secret-access-key" -> accessKey
       )
+    // on huge files we use file buffering (else we might run OOM)
+    if (isHugeFile) {
+      settingMap.update("buffer", "disk")
+      settingMap.update("disk-buffer-path", Files.createTempDirectory("s3hypersync").toAbsolutePath.toString)
+    }
     // allow setting a custom endpoint
     if (endpointOverwrite.isDefined) {
       settingMap.update("endpoint-url", endpointOverwrite.get)

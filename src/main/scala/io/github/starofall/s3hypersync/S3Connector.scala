@@ -19,7 +19,7 @@ object S3Connector extends Logger {
                tKey:     String,
                fileSize: Long)
               (implicit actorSystem: ActorSystem,
-               statistics: SyncStatistics): Future[Any] = {
+               statistics:           SyncStatistics): Future[Any] = {
     val s3Source: Source[ByteString, Future[ObjectMetadata]] = S3
       .getObject(job.sourceBucket.toOption.get, sKey)
       .withAttributes(S3Attributes.settings(SyncS3Settings.sourceConfig(job)))
@@ -64,7 +64,7 @@ object S3Connector extends Logger {
           job.targetBucket.toOption.get, tKey,
           chunkSize = multiPartChunkSize,
           s3Headers = S3Headers().withCustomHeaders(Map("x-amz-storage-class" -> storageString)))
-        .withAttributes(S3Attributes.settings(SyncS3Settings.targetConfig(job)))
+        .withAttributes(S3Attributes.settings(SyncS3Settings.targetConfig(job, isHugeFile = true)))
       s3Source.runWith(s3Sink)
     }
   }
