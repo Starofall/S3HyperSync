@@ -6,8 +6,8 @@ lazy val root = (project in file("."))
   .settings(
     name := "S3HyperSync",
     organization := "io.github.starofall",
-    version := "0.1.5",
-    scalaVersion := "2.13.14",
+    version := "0.1.6",
+    scalaVersion := "2.13.16",
     assembly / assemblyMergeStrategy := {
       case x if x.contains("META-INF") && x.contains("module-info.class") => MergeStrategy.discard
       case x if x.contains("META-INF") && x.contains("license")           => MergeStrategy.first
@@ -30,8 +30,8 @@ lazy val root = (project in file("."))
       "-encoding", "utf8"),
     libraryDependencies ++= Seq(
       "org.rogach" %% "scallop" % "5.1.0",
-      "org.apache.pekko" %% "pekko-connectors-s3" % "1.0.2",
-      "org.apache.pekko" %% "pekko-stream" % "1.0.2",
+      "org.apache.pekko" %% "pekko-connectors-s3" % "1.1.0",
+      "org.apache.pekko" %% "pekko-stream" % "1.1.3",
       "ch.qos.logback" % "logback-core" % "1.4.14",
       "ch.qos.logback" % "logback-classic" % "1.4.14",
       // testing dependencies
